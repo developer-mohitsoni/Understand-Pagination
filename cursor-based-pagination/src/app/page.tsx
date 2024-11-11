@@ -1,101 +1,123 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState } from "react";
+import { User } from "@prisma/client";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { fetchUsers, createUser } from "@/app/utils/fetchHelpers";
+
+export default function UsersPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const { toast } = useToast();
+
+  const loadUsers = async (cursor: number | null = null) => {
+    setLoading(true);
+    try {
+      const data = await fetchUsers(cursor);
+      setUsers((prev) => [...prev, ...data.users]);
+      setNextCursor(data.nextCursor);
+    } catch (error) {
+      toast({ title: "Error loading users", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const handleLoadMore = () => {
+    if (nextCursor) loadUsers(nextCursor);
+  };
+
+  const handleCreateUser = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setCreating(true);
+
+    try {
+      await createUser(name, email);
+      setName("");
+      setEmail("");
+      toast({ title: "User created successfully!", variant: "default" });
+      setUsers([]); // Reset users list and fetch again for updated data
+      setNextCursor(null); // Reset cursor
+      loadUsers();
+    } catch (error) {
+      toast({ title: (error as Error).message, variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="p-6 max-w-md mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Users</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      <form onSubmit={handleCreateUser} className="mb-6">
+        <Input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name"
+          required
+          className="mb-4"
+        />
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          required
+          className="mb-4"
+        />
+        <Button type="submit" disabled={creating} className="w-full">
+          {creating ? "Creating..." : "Create User"}
+        </Button>
+      </form>
+
+      <div className="space-y-4">
+        {users.map((user) => (
+          <Card key={user.id} className="shadow-lg border">
+            <CardHeader>
+              <CardTitle className="text-lg">{user.name}</CardTitle>
+              <CardDescription className="text-gray-600">
+                {user.email}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-center mt-6">
+        {loading ? (
+          <LoadingSpinner className="text-blue-500" />
+        ) : (
+          nextCursor && (
+            <Button
+              onClick={handleLoadMore}
+              variant="default"
+              className="px-4 py-2"
+            >
+              Load More
+            </Button>
+          )
+        )}
+      </div>
     </div>
   );
 }
